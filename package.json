@@ -8,8 +8,6 @@
     "dev": "budo index.js:dist/aframe-stl-model.min.js --port 7000 --live --open",
     "dist": "webpack --config webpack.unminified.config.js && webpack --define process.env.NODE_ENV=\"production\"",
     "lint": "semistandard -v | snazzy",
-    "prepublish": "npm run dist",
-    "ghpages": "ghpages",
     "start": "npm run dev",
     "test": "karma start ./tests/karma.conf.js",
     "test:firefox": "karma start ./tests/karma.conf.js --browsers Firefox",
