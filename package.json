@@ -1,6 +1,6 @@
 {
   "name": "aframe-stl-model",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "A STL files component for A-Frame.",
   "main": "index.js",
   "unpkg": "dist/aframe-stl-model.min.js",
