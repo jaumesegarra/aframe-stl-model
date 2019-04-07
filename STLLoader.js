@@ -29,21 +29,23 @@
  *  var mesh = new THREE.Mesh( geometry, material );
  */
 
-export function  STLLoader( manager ) {
+
+THREE.STLLoader = function ( manager ) {
 
 	this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
 
 };
 
-STLLoader.prototype = {
+THREE.STLLoader.prototype = {
 
-	constructor: STLLoader,
+	constructor: THREE.STLLoader,
 
 	load: function ( url, onLoad, onProgress, onError ) {
 
 		var scope = this;
 
 		var loader = new THREE.FileLoader( scope.manager );
+		loader.setPath( scope.path );
 		loader.setResponseType( 'arraybuffer' );
 		loader.load( url, function ( text ) {
 
@@ -65,20 +67,25 @@ STLLoader.prototype = {
 
 	},
 
+	setPath: function ( value ) {
+
+		this.path = value;
+		return this;
+
+	},
+
 	parse: function ( data ) {
 
 		function isBinary( data ) {
 
 			var expect, face_size, n_faces, reader;
 			reader = new DataView( data );
-			// for (var i = 0; i < 80; i++)
-			// console.log(reader.getUint8( i,false));
-
 			face_size = ( 32 / 8 * 3 ) + ( ( 32 / 8 * 3 ) * 3 ) + ( 16 / 8 );
 			n_faces = reader.getUint32( 80, true );
 			expect = 80 + ( 32 / 8 ) + ( n_faces * face_size );
 
 			if ( expect === reader.byteLength ) {
+
 				return true;
 
 			}
@@ -87,22 +94,39 @@ STLLoader.prototype = {
 			// However, ASCII STLs lacking the SPACE after the 'd' are known to be
 			// plentiful.  So, check the first 5 bytes for 'solid'.
 
+			// Several encodings, such as UTF-8, precede the text with up to 5 bytes:
+			// https://en.wikipedia.org/wiki/Byte_order_mark#Byte_order_marks_by_encoding
+			// Search for "solid" to start anywhere after those prefixes.
+
 			// US-ASCII ordinal values for 's', 'o', 'l', 'i', 'd'
 
 			var solid = [ 115, 111, 108, 105, 100 ];
 
-			for ( var i = 0; i < 5; i ++ ) {
+			for ( var off = 0; off < 5; off ++ ) {
 
-				// If solid[ i ] does not match the i-th byte, then it is not an
-				// ASCII STL; hence, it is binary and return true.
+				// If "solid" text is matched to the current offset, declare it to be an ASCII STL.
 
-				if ( solid[ i ] != reader.getUint8( i, false ) ) return true;
+				if ( matchDataViewAt ( solid, reader, off ) ) return false;
 
- 			}
+			}
 
-			// First 5 bytes read "solid"; declare it to be an ASCII STL
+			// Couldn't find "solid" text at the beginning; it is binary STL.
 
-			return false;
+			return true;
+
+		}
+
+		function matchDataViewAt( query, reader, offset ) {
+
+			// Check if each byte in query matches the corresponding byte from the current offset
+
+			for ( var i = 0, il = query.length; i < il; i ++ ) {
+
+				if ( query[ i ] !== reader.getUint8( offset + i, false ) ) return false;
+
+			}
+
+			return true;
 
 		}
 
@@ -124,7 +148,6 @@ STLLoader.prototype = {
 					( reader.getUint8( index + 5 ) == 0x3D /*'='*/ ) ) {
 
 					hasColors = true;
-					console.log("it has colors actually!")
 					colors = [];
 
 					defaultR = reader.getUint8( index + 6 ) / 255;
@@ -147,19 +170,13 @@ STLLoader.prototype = {
 			for ( var face = 0; face < faces; face ++ ) {
 
 				var start = dataOffset + face * faceLength;
-				if (start + 12 > reader.byteLength) {
-					break;
-				}
 				var normalX = reader.getFloat32( start, true );
 				var normalY = reader.getFloat32( start + 4, true );
 				var normalZ = reader.getFloat32( start + 8, true );
 
 				if ( hasColors ) {
 
-					var packedColor = 0;
-
-            packedColor = reader.getUint16( start + 48, true );
-
+					var packedColor = reader.getUint16( start + 48, true );
 
 					if ( ( packedColor & 0x8000 ) === 0 ) {
 
@@ -182,21 +199,18 @@ STLLoader.prototype = {
 				for ( var i = 1; i <= 3; i ++ ) {
 
 					var vertexstart = start + i * 12;
-					//console.log(vertexstart + ":" + reader.byteLength);
-					if (vertexstart + 12 > reader.byteLength) {
-						break;
+
+					vertices.push( reader.getFloat32( vertexstart, true ) );
+					vertices.push( reader.getFloat32( vertexstart + 4, true ) );
+					vertices.push( reader.getFloat32( vertexstart + 8, true ) );
+
+					normals.push( normalX, normalY, normalZ );
+
+					if ( hasColors ) {
+
+						colors.push( r, g, b );
+
 					}
-						vertices.push( reader.getFloat32( vertexstart, true ) );
-						vertices.push( reader.getFloat32( vertexstart + 4, true ) );
-						vertices.push( reader.getFloat32( vertexstart + 8, true ) );
-
-						normals.push( normalX, normalY, normalZ );
-
-						if ( hasColors ) {
-
-							colors.push( r, g, b );
-
-						}
 
 				}
 
@@ -223,7 +237,7 @@ STLLoader.prototype = {
 			var patternFace = /facet([\s\S]*?)endfacet/g;
 			var faceCounter = 0;
 
-			var patternFloat = /[\s]+([+-]?(?:\d+.\d+|\d+.|\d+|.\d+)(?:[eE][+-]?\d+)?)/.source;
+			var patternFloat = /[\s]+([+-]?(?:\d*)(?:\.\d*)?(?:[eE][+-]?\d+)?)/.source;
 			var patternVertex = new RegExp( 'vertex' + patternFloat + patternFloat + patternFloat, 'g' );
 			var patternNormal = new RegExp( 'normal' + patternFloat + patternFloat + patternFloat, 'g' );
 

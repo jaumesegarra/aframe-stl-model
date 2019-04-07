@@ -1,4 +1,4 @@
-import {STLLoader} from './STLLoader';
+require('./STLLoader');
 
 /* global AFRAME */
 
@@ -38,7 +38,7 @@ AFRAME.registerComponent('stl-model', {
     if (!data.src) return;
 
     this.remove();
-    loader = new STLLoader();
+    loader = new THREE.STLLoader();
     if (data.crossorigin) loader.setCrossOrigin(data.crossorigin);
     loader.load(data.src, function ( geometry ) {
       // Apply material.
